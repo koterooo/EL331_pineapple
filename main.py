@@ -100,9 +100,13 @@ sample_texts = [
     "He climbed the snowy peak alone."
 ]
 
-# HTML生成＆表示
 keyword = "AI"
 final_html = build_final_html(sample_texts, keyword)
 
-print("\n--- 以下をコピーしてブラウザで表示してください ---\n")
-print(final_html)
+# ① ファイルに保存
+with open("output.html", "w", encoding="utf-8") as f:
+    f.write(final_html)
+
+# ② ブラウザで自動オープン
+import webbrowser
+webbrowser.open("output.html")
