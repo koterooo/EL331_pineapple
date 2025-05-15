@@ -41,14 +41,14 @@ def kwic(text, target, window=5, search_type='token', color='cyan', attrs=None):
         # Find the sentence that contains the match
         for sent in doc.sents:
             if sent.start <= idx < sent.end:
-                sent_tokens = [tok.text for tok in sent]
+                sent_tokens = [tok.text_with_ws for tok in sent]
                 local_idx = idx - sent.start
                 left = sent_tokens[max(0, local_idx - window): local_idx]
                 mid = sent_tokens[local_idx: local_idx + length]
                 right = sent_tokens[local_idx + length: local_idx + length + window]
-                mid_str = ' '.join(mid)
+                mid_str = ''.join(mid).strip()
                 highlighted = colored(mid_str, color, attrs=attrs)
-                print(' '.join(left) + ' ' + highlighted + ' ' + ' '.join(right))
+                print(''.join(left).strip() + ' ' + highlighted + ' ' + ''.join(right).strip())
                 break
 
 if __name__ == '__main__':
