@@ -31,14 +31,13 @@ def kwic(text, target, window=5, search_type='token', color='cyan', attrs=None):
     elif search_type == 'entity':
         ent_type = target.upper()
         for ent in doc.ents:
-            if ent.label_ == ent_type:
+            if ent.label_ == ent_type and ent.text != "NLP":  # filter out 'NLP'
                 matches.append((ent.start, ent.end - ent.start))
 
     else:
         raise ValueError("search_type must be one of: 'token', 'pos', 'entity'")
 
     for idx, length in matches:
-        # Find the sentence that contains the match
         for sent in doc.sents:
             if sent.start <= idx < sent.end:
                 sent_tokens = [tok.text_with_ws for tok in sent]
@@ -71,19 +70,17 @@ if __name__ == '__main__':
     The event was hosted by the United Nations and attended by representatives from Google and Microsoft.
     On January 1, 2020, the organization pledged $1,000,000 to support renewable energy projects.
     Meetings are scheduled daily at 10:00 AM in Geneva, Switzerland to evaluate the progress.
+    The train departs at 6:45 PM from platform 3 and arrives by 9:30 PM.
     """
 
-    # Prompt user for search mode first
     st = input("Select search mode (token / pos / entity, default is token): ").strip().lower()
     search_type = st if st in {'token', 'pos', 'entity'} else 'token'
 
-    # Show valid options depending on search mode
     if search_type == 'pos':
         print("Available POS tags: NOUN, VERB, ADJ, ADV, PROPN, DET, ADP, AUX")
     elif search_type == 'entity':
         print("Available entity labels: PERSON, ORG, GPE, DATE, MONEY, TIME")
 
-    # Prompt for the target keyword or pattern
     target = input(f"Enter target for {search_type} search: ")
 
     w_in = input("Enter window size (number of words left/right, default is 5): ").strip()
