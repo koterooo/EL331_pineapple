@@ -1,41 +1,121 @@
 import spacy
 from collections import Counter
+from termcolor import colored
 
 nlp = spacy.load('en_core_web_sm')
 
-def kwic_level3a(text, target, window=3):
+def kwic(text, target, window=5, search_type='token', color='cyan', attrs=None, sort_mode='sequential'):
+    if attrs is None:
+        attrs = ['bold']
+
+    text = text.replace('\n', ' ')
     doc = nlp(text)
+
     tokens = [tok.text for tok in doc]
-    lowered = [t.lower() for t in tokens]
-    target_words = target.split()
-    n = len(target_words)
-
     matches = []
-    for i in range(len(tokens) - n):
-        if lowered[i:i + n] == [w.lower() for w in target_words]:
-            matches.append(i)
+    output_data = []
 
+    # マッチ検索
+    if search_type == 'token':
+        target_words = target.split()
+        n = len(target_words)
+        lowered = [t.lower() for t in tokens]
+        for i in range(len(tokens) - n + 1):
+            if lowered[i:i+n] == [w.lower() for w in target_words]:
+                matches.append((i, n))
+    elif search_type == 'pos':
+        target_tags = target.split()
+        n = len(target_tags)
+        pos_list = [tok.pos_ for tok in doc]
+        for i in range(len(pos_list) - n + 1):
+            if pos_list[i:i+n] == target_tags:
+                matches.append((i, n))
+    elif search_type == 'entity':
+        ent_type = target.upper()
+        for ent in doc.ents:
+            if ent.label_ == ent_type:
+                matches.append((ent.start, ent.end - ent.start))
+    else:
+        raise ValueError("search_type must be one of: 'token', 'pos', 'entity'")
+
+    # 結果処理 + パターンカウント
     pattern_counter = Counter()
+    for idx, length in matches:
+        for sent in doc.sents:
+            if sent.start <= idx < sent.end:
+                sent_tokens = [tok.text_with_ws for tok in sent]
+                sent_doc = list(sent)
+                local_idx = idx - sent.start
 
-    for idx in matches:
-        start = idx + n
-        end = min(start + window, len(doc))
-        for tok in doc[start:end]:
-            token = tok.text
-            pos = tok.pos_
-            ent = tok.ent_type_ or ""
-            pattern_counter[(token, pos, ent)] += 1
+                left = sent_tokens[max(0, local_idx - window): local_idx]
+                mid = sent_tokens[local_idx: local_idx + length]
+                right = sent_tokens[local_idx + length: local_idx + length + window]
 
-    print(f"Most frequent patterns after '{target}':\n")
+                mid_str = ''.join(mid).strip()
+                highlighted = colored(mid_str, color, attrs=attrs)
+                display = ''.join(left).strip() + ' ' + highlighted + ' ' + ''.join(right).strip()
+
+                next_tok = sent_doc[local_idx + length] if local_idx + length < len(sent_doc) else None
+                if next_tok:
+                    next_token = next_tok.text
+                    next_pos = next_tok.pos_
+                    next_ent = next_tok.ent_type_ or ""
+                    pattern_counter[(next_token, next_pos, next_ent)] += 1
+                else:
+                    next_token, next_pos, next_ent = "", "", ""
+
+                output_data.append((display, next_token, next_pos))
+
+                break
+
+    # ソート
+    if sort_mode == 'sequential':
+        sorted_output = output_data
+    elif sort_mode == 'token_freq':
+        freq = Counter([item[1] for item in output_data])
+        sorted_output = sorted(output_data, key=lambda x: (-freq[x[1]], x[1]))
+    elif sort_mode == 'pos_freq':
+        freq = Counter([item[2] for item in output_data])
+        sorted_output = sorted(output_data, key=lambda x: (-freq[x[2]], x[2]))
+    else:
+        print("Invalid sort_mode. Defaulting to sequential.")
+        sorted_output = output_data
+
+    # 出力表示（番号付き、windowサイズ分の語だけ）
+    print(f"\n=== KWIC view (target aligned center) for '{target}' ===\n")
+    for i, (idx, length) in enumerate(matches, 1):
+        start = max(0, idx - window)
+        end = min(len(doc), idx + length + window)
+
+        left = [doc[j].text.strip() for j in range(start, idx)]
+        mid = [doc[j].text.strip() for j in range(idx, idx + length)]
+        right = [doc[j].text.strip() for j in range(idx + length, end)]
+
+        left_str = ' '.join(left)
+        mid_str = ' '.join(mid)
+        right_str = ' '.join(right)
+
+        highlighted = colored(mid_str, color, attrs=attrs)
+
+        # 左：右寄せ、中央：中央寄せ（色付き）、右：左寄せ
+        print(f"{left_str:>40}  {highlighted:^15}  {right_str:<40}")
+
+        # 次トークンの記録（元のままでOK）
+        if idx + length < len(doc):
+            next_tok = doc[idx + length]
+            pattern_counter[(next_tok.text, next_tok.pos_, next_tok.ent_type_ or "")] += 1
+
+
+
+
+    # 追加：頻出パターン出力
+    print(f"\n=== Most frequent patterns after '{target}' ===\n")
     for i, ((token, pos, ent), freq) in enumerate(pattern_counter.most_common(20), 1):
         ent_display = ent if ent else "None"
         print(f"{i}. ({token}, {pos}, {ent_display}) – {freq} times")
-
-if __name__ == "__main__":
-    target = input("Enter target word or phrase: ")
     
-    text = """
-    Natural language processing (NLP) has undergone significant transformation over the past few decades. In the early stages, researchers focused primarily on rule-based approaches, developing complex sets of handcrafted linguistic rules to analyze and generate human language. These systems, while groundbreaking at the time, struggled with scalability and adaptability, often requiring extensive manual effort for even modest improvements.
+text = """
+Natural language processing (NLP) has undergone significant transformation over the past few decades. In the early stages, researchers focused primarily on rule-based approaches, developing complex sets of handcrafted linguistic rules to analyze and generate human language. These systems, while groundbreaking at the time, struggled with scalability and adaptability, often requiring extensive manual effort for even modest improvements.
 The 1980s and 1990s saw the rise of statistical methods. With access to larger datasets and more powerful computing resources, researchers began employing probabilistic models to capture language patterns more effectively. Techniques such as Hidden Markov Models and n-gram language models became central to tasks like speech recognition, part-of-speech tagging, and machine translation. These models represented a significant improvement over purely rule-based systems, but they still faced challenges in handling long-range dependencies and understanding context deeply.
 The advent of deep learning in the early 2010s marked a pivotal moment for NLP. Researchers started leveraging neural networks, particularly recurrent neural networks (RNNs) and later long short-term memory networks (LSTMs), to model sequences of text. These architectures were better suited for capturing temporal dependencies, leading to major advances in tasks such as sentiment analysis, machine translation, and question answering.
 Perhaps the most transformative development came with the introduction of transformer architectures. The paper "Attention is All You Need," published in 2017, proposed a new model that relied entirely on self-attention mechanisms, dispensing with recurrence altogether. Transformers quickly became the foundation for a new generation of language models, including BERT (Bidirectional Encoder Representations from Transformers), GPT (Generative Pretrained Transformer), RoBERTa, T5, and many others. These models demonstrated unprecedented capabilities in understanding and generating human language.
@@ -87,5 +167,34 @@ The excessive use of fertilizers contributes greatly to eutrophication in stream
 Voluntary sustainability standards such as Rainforest Alliance and Fairtrade are being used to address some of these issues. Banana production certified in this way grew rapidly at the start of the 21st century to represent 36% of banana exports by 2016. However, such standards are applied mainly in countries which focus on the export market, such as Colombia, Costa Rica, Ecuador, and Guatemala; worldwide they cover only 8–10% of production.
 Mutation breeding can be used in this crop. Aneuploidy is a source of significant variation in allotriploid varieties. For one example, it can be a source of TR4 resistance. Lab protocols have been devised to screen for such aberrations and for possible resulting disease resistances. Wild Musa spp. provide useful resistance genetics, and are vital to breeding for TR4 resistance
     """
-    
-    kwic_level3a(text, target)
+
+st = input("Select search mode (token / pos / entity, default is token): ").strip().lower()
+search_type = st if st in {'token', 'pos', 'entity'} else 'token'
+
+if search_type == 'pos':
+        print("Available POS tags: NOUN, VERB, ADJ, ADV, PROPN, DET, ADP, AUX")
+elif search_type == 'entity':
+        print("Available entity labels: PERSON, ORG, GPE, DATE, MONEY, TIME")
+
+target = input(f"Enter target for {search_type} search: ")
+
+w_in = input("Enter window size (number of words left/right, default is 5): ").strip()
+window = int(w_in) if w_in.isdigit() and int(w_in) > 0 else 5
+
+color_in = input("Enter highlight color (grey, red, green, yellow, blue, magenta, cyan, white; default is cyan): ").strip().lower()
+colors = {'grey', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'}
+color = color_in if color_in in colors else 'cyan'
+
+attrs_in = input("Enter attributes (comma-separated: bold, underline, blink, reverse, concealed; default is bold): ").strip().lower()
+valid_attrs = {'bold', 'underline', 'blink', 'reverse', 'concealed'}
+if attrs_in:
+    attrs = [a.strip() for a in attrs_in.split(',') if a.strip() in valid_attrs]
+    attrs = attrs or ['bold']
+else:
+    attrs = ['bold']
+
+sort_mode = input("Select display mode (sequential / token_freq / pos_freq, default is sequential): ").strip().lower()
+sort_mode = sort_mode if sort_mode in {'sequential', 'token_freq', 'pos_freq'} else 'sequential'
+
+print(f"\n=== KWIC (mode={search_type}, window={window}, color={color}, attrs={attrs}, sort={sort_mode}) ===\n")
+kwic(text, target, window=window, search_type=search_type, color=color, attrs=attrs, sort_mode=sort_mode)
