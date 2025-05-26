@@ -2,103 +2,87 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>KWIC Explorer</title>
+<title>KWIC Explorer (PyScript)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<!-- PyScript 2025-05 リリース → CDN で取得 -->
+<link rel="stylesheet" href="https://pyscript.net/releases/2025.5.1/core.css">
+<script defer src="https://pyscript.net/releases/2025.5.1/core.js"></script>
+
+<py-config>
+  packages = ["nltk==3.8.1"]     # pure-Python → WebAssembly 互換
+</py-config>
+
 <style>
-  body{font-family:system-ui,sans-serif}textarea{resize:vertical}pre{white-space:pre-wrap;word-break:break-word}
-  .cyan{color:#00bcd4;font-weight:700}.yellow{color:#f5c400;font-weight:700}.red{color:#e91e63;font-weight:700}
-  .green{color:#4caf50;font-weight:700}.blue{color:#2196f3;font-weight:700}.magenta{color:#9c27b0;font-weight:700}
+  textarea{resize:vertical} pre{white-space:pre-wrap;word-break:break-word}
+  .cyan{color:#00bcd4;font-weight:700}.yellow{color:#f5c400;font-weight:700}
+  .red{color:#e91e63;font-weight:700}.green{color:#4caf50;font-weight:700}
+  .blue{color:#2196f3;font-weight:700}.magenta{color:#9c27b0;font-weight:700}
   .grey{color:#607d8b;font-weight:700}.white{color:#fafafa;font-weight:700}
 </style>
-<script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
 </head>
-<body>
-<div class="container my-4">
-  <h1 class="mb-3">KWIC Explorer <small class="text-muted fs-6">(Keyword-in-Context)</small></h1>
 
-  <div id="status" class="alert alert-info small">
-    Initialising Python environment. The first load may take up to a few minutes&hellip;
-  </div>
-  <div class="progress mb-4" style="height:18px;">
-    <div id="bar" class="progress-bar" role="progressbar"
-         style="width:0%;" aria-valuemin="0" aria-valuemax="100">0%</div>
-  </div>
+<body class="container my-4">
+<h1 class="mb-3">KWIC Explorer <small class="text-muted fs-6">(PyScript)</small></h1>
 
-  <!-- text input -->
-  <div class="mb-3">
-    <label for="text" class="form-label fw-bold">Text</label>
-    <textarea id="text" class="form-control" rows="8"
-              placeholder="Paste or type text here (sample text will be used if left blank)."></textarea>
-  </div>
+<!-- Status / progress -->
+<div id="status" class="alert alert-info small">Loading Python runtime&hellip;</div>
 
-  <!-- parameters -->
-  <div class="row g-3">
-    <div class="col-md-2">
-      <label class="form-label">Search mode</label>
-      <select id="mode" class="form-select">
-        <option value="token" selected>token</option>
-        <option value="pos">POS</option>
-      </select>
-    </div>
-    <div class="col-md-3">
-      <label class="form-label">Target</label>
-      <input id="target" class="form-control" placeholder="e.g.&nbsp;banana / NN">
-    </div>
-    <div class="col-md-2">
-      <label class="form-label">Window (±)</label>
-      <input id="window" type="number" class="form-control" value="5" min="1">
-    </div>
-    <div class="col-md-2">
-      <label class="form-label">Highlight colour</label>
-      <select id="color" class="form-select">
-        <option>cyan</option><option>yellow</option><option>red</option>
-        <option>green</option><option>blue</option><option>magenta</option>
-        <option>grey</option><option>white</option>
-      </select>
-    </div>
-    <div class="col-md-3">
-      <label class="form-label">Sort order</label>
-      <select id="sort" class="form-select">
-        <option value="sequential">sequential</option>
-        <option value="token_freq">token freq</option>
-        <option value="pos_freq">POS freq</option>
-      </select>
-    </div>
-  </div>
-
-  <button id="run" class="btn btn-primary mt-4">Run KWIC Search</button>
-
-  <hr class="my-4">
-  <h2 class="h4">Result</h2>
-  <pre id="output" class="border rounded p-3 bg-light small"></pre>
+<!-- Text input -->
+<div class="mb-3">
+  <label class="form-label fw-bold" for="text">Text</label>
+  <textarea id="text" class="form-control" rows="8"
+            placeholder="Paste or type text here (sample text will be used if blank)."></textarea>
 </div>
 
-<script>
-/* ---------- progress helper ---------- */
-function updateBar(p,msg){
-  const b=document.getElementById('bar');
-  b.style.width=p+'%'; b.textContent=p+'%';
-  if(msg) document.getElementById('status').textContent=msg;
-}
+<!-- Parameters -->
+<div class="row g-3">
+  <div class="col-md-2">
+    <label class="form-label">Search mode</label>
+    <select id="mode" class="form-select">
+      <option value="token" selected>token</option>
+      <option value="pos">POS</option>
+    </select>
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">Target</label>
+    <input id="target" class="form-control" placeholder="e.g. banana / NN">
+  </div>
+  <div class="col-md-2">
+    <label class="form-label">Window (±)</label>
+    <input id="window" type="number" class="form-control" value="5" min="1">
+  </div>
+  <div class="col-md-2">
+    <label class="form-label">Highlight colour</label>
+    <select id="color" class="form-select">
+      <option>cyan</option><option>yellow</option><option>red</option>
+      <option>green</option><option>blue</option><option>magenta</option>
+      <option>grey</option><option>white</option>
+    </select>
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">Sort order</label>
+    <select id="sort" class="form-select">
+      <option value="sequential">sequential</option>
+      <option value="token_freq">token freq</option>
+      <option value="pos_freq">POS freq</option>
+    </select>
+  </div>
+</div>
 
-/* ---------- load Pyodide + NLTK ---------- */
-let pyReady=null, kwic=null;
+<button id="run" class="btn btn-primary mt-4">Run KWIC Search</button>
 
-async function boot(){
-  updateBar(5,'Downloading Pyodide runtime&hellip;');
-  pyReady=loadPyodide({indexURL:'https://cdn.jsdelivr.net/pyodide/v0.25.1/full/'});
-  const py=await pyReady;
+<hr class="my-4">
+<h2 class="h4">Result</h2>
+<pre id="output" class="border rounded p-3 bg-light small"></pre>
 
-  updateBar(20,'Installing micropip&hellip;');
-  await py.loadPackage(['micropip']);
+<!-- ---------- Python part (PyScript) ---------- -->
+<script type="py" id="kwic">
+import nltk, html, js
+from pyodide.ffi import create_proxy
 
-  updateBar(40,'Installing NLTK (pure-Python, WASM-ready)&hellip;');
-  await py.runPythonAsync(`import micropip, asyncio; await micropip.install('nltk==3.8.1')`);
-
-  updateBar(65,'Downloading tokeniser & tagger models&hellip;');
-  await py.runPythonAsync(`
-import nltk, asyncio, json, html, re
+# ensure models (PyScript downloads them once, then caches)
 nltk.download('punkt', quiet=True)
 nltk.download('averaged_perceptron_tagger', quiet=True)
 
@@ -106,60 +90,57 @@ def highlight(txt, colour):
     return f'<span class="{colour}">{html.escape(txt)}</span>'
 
 def kwic(text, target, window=5, mode='token', colour='cyan', sort='sequential'):
-    # tokenise & (optionally) POS-tag
-    tokens = nltk.word_tokenize(text.replace("\\n"," "))
-    if mode=='pos': tags=[t for _,t in nltk.pos_tag(tokens, tagset='universal')]
-    else:           tags=[]
-
-    tgt=target.split(); n=len(tgt)
-    matches=[]
-    if mode=='token':
-        low=[t.lower() for t in tokens]; tgt=[w.lower() for w in tgt]
-        for i in range(len(tokens)-n+1):
-            if low[i:i+n]==tgt: matches.append((i,n))
-    elif mode=='pos':
-        for i in range(len(tags)-n+1):
-            if tags[i:i+n]==tgt: matches.append((i,n))
+    tokens = nltk.word_tokenize(text.replace("\n", " "))
+    if mode == 'pos':
+        tags = [tag for _, tag in nltk.pos_tag(tokens, tagset='universal')]
     else:
-        return '<em>Unsupported mode</em>'
+        tags = []
 
-    if not matches: return '<em>No matches found.</em>'
+    tgt = target.split(); n = len(tgt)
+    matches = []
+    if mode == 'token':
+        low = [t.lower() for t in tokens]; tgt_low = [w.lower() for w in tgt]
+        for i in range(len(tokens) - n + 1):
+            if low[i:i+n] == tgt_low:
+                matches.append((i, n))
+    elif mode == 'pos':
+        for i in range(len(tags) - n + 1):
+            if tags[i:i+n] == tgt:
+                matches.append((i, n))
 
-    rows=[]
-    for idx,length in matches:
-        left  =" ".join(tokens[max(0,idx-window):idx])
-        mid   =" ".join(tokens[idx:idx+length])
-        right =" ".join(tokens[idx+length:idx+length+window])
-        rows.append(f'{html.escape(left):>40}  {highlight(mid,colour):^15}  {html.escape(right):<40}')
+    if not matches:
+        return "<em>No matches found.</em>"
 
-    if sort=='token_freq': rows.sort(key=lambda s:s.lower().split()[41])
-    elif sort=='pos_freq' and mode=='pos': rows.sort(key=lambda s:s.split()[41])
+    rows = []
+    for idx, length in matches:
+        left  = " ".join(tokens[max(0, idx-window): idx])
+        mid   = " ".join(tokens[idx: idx+length])
+        right = " ".join(tokens[idx+length: idx+length+window])
+        rows.append(f'{html.escape(left):>40}  {highlight(mid, colour):^15}  {html.escape(right):<40}')
 
-    header=f"<strong>=== KWIC ({html.escape(mode)}) – «{html.escape(target)}» ===</strong><br>"
-    return header+"<br>".join(rows)
-`);
+    if sort == 'token_freq':
+        rows.sort(key=lambda s: s.lower().split()[41])
+    elif sort == 'pos_freq' and mode == 'pos':
+        rows.sort(key=lambda s: s.split()[41])
 
-  kwic=py.globals.get('kwic');
-  updateBar(100,'Ready! Fill the form and click “Run KWIC Search”.');
-  document.getElementById('status').classList.replace('alert-info','alert-success');
-}
-boot();
+    header = f"<strong>=== KWIC ({html.escape(mode)}) – «{html.escape(target)}» ===</strong><br>"
+    return header + "<br>".join(rows)
 
-/* ---------- run search ---------- */
-document.getElementById('run').addEventListener('click',async()=>{
-  updateBar(100,'Running search&hellip;');
-  const txt=document.getElementById('text').value || 'A banana is an elongated, edible fruit that&hellip;';
-  const tgt=document.getElementById('target').value.trim()||'banana';
-  const win=parseInt(document.getElementById('window').value,10)||5;
-  const mode=document.getElementById('mode').value;
-  const col=document.getElementById('color').value;
-  const sort=document.getElementById('sort').value;
+# ---------- Bind Python to JS button ----------
+def run_kwic(event):
+    doc = js.document
+    text   = doc.getElementById('text').value or 'A banana is an elongated, edible fruit…'
+    target = doc.getElementById('target').value or 'banana'
+    window = int(doc.getElementById('window').value or 5)
+    mode   = doc.getElementById('mode').value
+    colour = doc.getElementById('color').value
+    sort   = doc.getElementById('sort').value
 
-  await pyReady;
-  document.getElementById('output').innerHTML=
-      await kwic(txt,tgt,win,mode,col,sort);
-  document.getElementById('status').textContent='Done.';
-});
+    doc.getElementById('output').innerHTML = kwic(text, target, window, mode, colour, sort)
+    doc.getElementById('status').innerText = 'Done.'
+
+js.document.getElementById('run').addEventListener('click', create_proxy(run_kwic))
+js.document.getElementById('status').innerText = 'Ready! PyScript runtime loaded.'
 </script>
 </body>
 </html>
