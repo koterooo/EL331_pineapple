@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>KWIC Web App</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .mid { font-weight: bold; color: cyan; }
+    .hidden { display: none; }
+  </style>
+  <script>
+    function updateTargetInput() {
+      const type = document.getElementById('search_type').value;
+      document.getElementById('target_token').style.display = (type === 'token') ? 'inline' : 'none';
+      document.getElementById('target_pos').style.display = (type === 'pos') ? 'inline' : 'none';
+      document.getElementById('target_entity').style.display = (type === 'entity') ? 'inline' : 'none';
+    }
+    window.addEventListener('DOMContentLoaded', updateTargetInput);
+  </script>
+</head>
+<body>
+  <h1>KWIC Web App</h1>
+  <form method="post">
+    <label for="text">Text:</label><br>
+    <textarea name="text" rows="10" cols="100" placeholder="Enter your text here..."></textarea><br><br>
+
+    <label for="window">Window size:</label>
+    <input type="number" name="window" value="5" min="1"><br><br>
+
+    <label for="search_type">Search type:</label>
+    <select name="search_type" id="search_type" onchange="updateTargetInput()">
+      <option value="token">Token</option>
+      <option value="pos">POS</option>
+      <option value="entity">Entity</option>
+    </select><br><br>
+
+    <div id="target_token">
+      <label for="target">Target (token):</label>
+      <input type="text" name="target"><br><br>
+    </div>
+
+    <div id="target_pos" class="hidden">
+      <label for="target">Target (POS):</label>
+      <select name="target">
+        <option value="NOUN">NOUN</option>
+        <option value="VERB">VERB</option>
+        <option value="ADJ">ADJ</option>
+        <option value="ADV">ADV</option>
+        <option value="PROPN">PROPN</option>
+        <option value="DET">DET</option>
+        <option value="ADP">ADP</option>
+        <option value="AUX">AUX</option>
+      </select><br><br>
+    </div>
+
+    <div id="target_entity" class="hidden">
+      <label for="target">Target (Entity):</label>
+      <select name="target">
+        <option value="PERSON">PERSON</option>
+        <option value="ORG">ORG</option>
+        <option value="GPE">GPE</option>
+        <option value="DATE">DATE</option>
+        <option value="MONEY">MONEY</option>
+        <option value="TIME">TIME</option>
+      </select><br><br>
+    </div>
+
+    <label for="sort_mode">Sort mode:</label>
+    <select name="sort_mode">
+      <option value="sequential">Sequential</option>
+      <option value="token_freq">Token Freq</option>
+      <option value="pos_freq">POS Freq</option>
+    </select><br><br>
+
+    <button type="submit">Search</button>
+  </form>
+
+  <hr>
+
+  {% if result %}
+    <h2>Results</h2>
+    <ul>
+      {% for item in result %}
+        <li>{{ item.left }} <span class="mid">{{ item.mid }}</span> {{ item.right }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  {% if patterns %}
+    <h3>Most Frequent Patterns</h3>
+    <ul>
+      {% for pat, count in patterns %}
+        <li>{{ pat }} – {{ count }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</body>
+</html>
