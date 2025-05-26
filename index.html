@@ -1,1 +1,186 @@
-<h1>Hello World</h1>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>KWIC Explorer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Bootstrap 5 で手早く “それっぽい” UI -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+  body            { font-family: system-ui, sans-serif; }
+  textarea         { resize: vertical; }
+  pre              { white-space: pre-wrap; word-break: break-word; }
+  /* 色付きハイライトを見やすく */
+  .cyan    { color:#00bcd4; font-weight:700; }
+  .yellow  { color:#f5c400; font-weight:700; }
+  .red     { color:#e91e63; font-weight:700; }
+  .green   { color:#4caf50; font-weight:700; }
+  .blue    { color:#2196f3; font-weight:700; }
+  .magenta { color:#9c27b0; font-weight:700; }
+  .grey    { color:#607d8b; font-weight:700; }
+  .white   { color:#fafafa; font-weight:700; }
+</style>
+<!-- Pyodide (Python → WebAssembly) -->
+<script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+</head>
+<body>
+<div class="container my-4">
+  <h1 class="mb-3">KWIC Explorer <small class="text-muted fs-5">（Keyword-in-Context）</small></h1>
+
+  <div class="alert alert-info small" id="status">
+    Python 環境を初期化中です。初回は 30 秒～数分ほどお待ちください&hellip;
+  </div>
+
+  <!-- 解析対象テキスト -->
+  <div class="mb-3">
+    <label for="text" class="form-label fw-bold">テキスト</label>
+    <textarea id="text" class="form-control" rows="8" placeholder="ここにテキストを貼り付けるか、サンプルのままお試しください。"></textarea>
+  </div>
+
+  <!-- パラメータ入力 -->
+  <div class="row g-3">
+    <div class="col-md-2">
+      <label class="form-label">検索モード</label>
+      <select id="mode" class="form-select">
+        <option value="token" selected>token</option>
+        <option value="pos">pos</option>
+        <option value="entity">entity</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">ターゲット</label>
+      <input id="target" class="form-control" placeholder="例: banana">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">左右窓 size</label>
+      <input id="window" type="number" class="form-control" value="5" min="1">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">ハイライト色</label>
+      <select id="color" class="form-select">
+        <option>cyan</option><option>yellow</option><option>red</option>
+        <option>green</option><option>blue</option><option>magenta</option>
+        <option>grey</option><option>white</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">並べ替え</label>
+      <select id="sort" class="form-select">
+        <option value="sequential">sequential</option>
+        <option value="token_freq">token freq</option>
+        <option value="pos_freq">POS freq</option>
+      </select>
+    </div>
+  </div>
+
+  <button id="run" class="btn btn-primary mt-4">KWIC 検索を実行</button>
+
+  <hr class="my-4">
+  <h2 class="h4">結果</h2>
+  <pre id="output" class="border rounded p-3 bg-light small"></pre>
+</div>
+
+<script>
+let pyReady = null;           // Pyodide 初期化 Promise
+let kwicFn   = null;          // Python 側のラッパ
+
+/** Pyodide + spaCy をロードし、level3-1.py をブラウザ用に軽く改造 */
+async function initPy() {
+  const status = document.getElementById("status");
+  pyReady = loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.25.1/full/" });
+  const pyodide = await pyReady;
+
+  status.textContent = "Python パッケージをロードしています (spaCy + model)…";
+  await pyodide.loadPackage(["micropip"]);
+  await pyodide.runPythonAsync(`
+import micropip, sys, textwrap, contextlib, io, asyncio
+# spaCy と小型英語モデルをインストール（ネットワーク経由なので重いです）
+await micropip.install("spacy==3.7.2")
+await micropip.install("https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl")
+
+import spacy, re, html, json
+nlp = spacy.load("en_core_web_sm")
+
+def highlight(text, color):
+    return f'<span class="{color}">{html.escape(text)}</span>'
+
+def kwic_web(text, target, window=5, search_type="token", color="cyan", sort_mode="sequential"):
+    # --- ここは元 level3-1.py のロジックをほぼ流用 ---
+    doc = nlp(text.replace("\\n", " "))
+    tokens = [t.text for t in doc]
+    matches = []
+
+    if search_type == "token":
+        target_words = target.split()
+        n = len(target_words)
+        lowered = [t.lower() for t in tokens]
+        t_low = [w.lower() for w in target_words]
+        for i in range(len(tokens)-n+1):
+            if lowered[i:i+n] == t_low:
+                matches.append((i, n))
+    elif search_type == "pos":
+        target_tags = target.split()
+        pos_list = [tok.pos_ for tok in doc]
+        n = len(target_tags)
+        for i in range(len(pos_list)-n+1):
+            if pos_list[i:i+n] == target_tags:
+                matches.append((i, n))
+    elif search_type == "entity":
+        ent_type = target.upper()
+        for ent in doc.ents:
+            if ent.label_ == ent_type:
+                matches.append((ent.start, ent.end-ent.start))
+    else:
+        raise ValueError("invalid search_type")
+
+    # 出力を作成
+    lines = []
+    for i,(idx, length) in enumerate(matches,1):
+        start  = max(0, idx-window)
+        end    = min(len(doc), idx+length+window)
+        left   = " ".join(t.text for t in doc[start:idx])
+        mid    = " ".join(t.text for t in doc[idx:idx+length])
+        right  = " ".join(t.text for t in doc[idx+length:end])
+        line   = f'{html.escape(left):>40}  {highlight(mid,color):^15}  {html.escape(right):<40}'
+        lines.append(line)
+
+    if not lines:
+        return "<em>No matches found.</em>"
+
+    # 並べ替え
+    if sort_mode == "token_freq":
+        lines.sort(key=lambda x: x.split()[41].lower())   # ざっくり
+    elif sort_mode == "pos_freq":
+        # POS ソートは簡易実装
+        pass
+
+    header = f"<strong>=== KWIC ({search_type}) – «{html.escape(target)}» ===</strong><br>"
+    return header + "<br>".join(lines)
+`);
+  // JS から呼び出しやすいようにハンドルを保持
+  kwicFn = pyodide.globals.get('kwic_web');
+  status.classList.replace("alert-info", "alert-success");
+  status.textContent = "Python 環境の準備が整いました！　パラメータを入力して［KWIC検索を実行］を押してください。";
+}
+
+initPy();
+
+/** 実行ボタン */
+document.getElementById("run").addEventListener("click", async () => {
+  const status = document.getElementById("status");
+  status.textContent = "解析中…";
+  const text   = document.getElementById("text").value || "A banana is an elongated, edible fruit…";
+  const target = document.getElementById("target").value.trim() || "banana";
+  const window = parseInt(document.getElementById("window").value, 10) || 5;
+  const mode   = document.getElementById("mode").value;
+  const color  = document.getElementById("color").value;
+  const sort   = document.getElementById("sort").value;
+
+  await pyReady;                              // Pyodide 完了待ち
+  const html = await kwicFn(text, target, window, mode, color, sort);
+  document.getElementById("output").innerHTML = html;
+  status.textContent = "完了！";
+});
+</script>
+</body>
+</html>
