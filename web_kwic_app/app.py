@@ -2,8 +2,8 @@ from flask import Flask, render_template, request
 import spacy
 from collections import Counter
 
-nlp = spacy.load('en_core_web_sm')
 app = Flask(__name__)
+nlp = spacy.load("en_core_web_sm")
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -17,7 +17,7 @@ def index():
         search_type = request.form["search_type"]
         sort_mode = request.form["sort_mode"]
 
-        doc = nlp(text.replace('\n', ' '))
+        doc = nlp(text.replace("\n", " "))
         tokens = [tok.text for tok in doc]
         matches = []
 
@@ -29,12 +29,10 @@ def index():
                 if lowered[i:i+n] == [w.lower() for w in target_words]:
                     matches.append((i, n))
         elif search_type == "pos":
-            target_tags = target.split()
-            n = len(target_tags)
             pos_list = [tok.pos_ for tok in doc]
-            for i in range(len(pos_list) - n + 1):
-                if pos_list[i:i+n] == target_tags:
-                    matches.append((i, n))
+            for i in range(len(pos_list)):
+                if pos_list[i] == target:
+                    matches.append((i, 1))
         elif search_type == "entity":
             for ent in doc.ents:
                 if ent.label_ == target.upper():
@@ -42,6 +40,7 @@ def index():
 
         pattern_counter = Counter()
         output_data = []
+
         for idx, length in matches:
             for sent in doc.sents:
                 if sent.start <= idx < sent.end:
@@ -75,4 +74,6 @@ def index():
     return render_template("index.html", result=result, patterns=patterns)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    import os
+    port = int(os.environ.get("PORT", 5000))
+    app.run(debug=False, host="0.0.0.0", port=port)
