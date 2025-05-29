@@ -5,6 +5,8 @@ from collections import Counter
 app = Flask(__name__)
 nlp = spacy.load("en_core_web_sm")
 
+IGNORED_TOKENS = {"(", ")", ",", ".", ":", ";"}
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     result = []
@@ -27,15 +29,16 @@ def index():
             lowered = [t.lower() for t in tokens]
             for i in range(len(tokens) - n + 1):
                 if lowered[i:i+n] == [w.lower() for w in target_words]:
-                    matches.append((i, n))
+                    if tokens[i] not in IGNORED_TOKENS:
+                        matches.append((i, n))
         elif search_type == "pos":
             pos_list = [tok.pos_ for tok in doc]
             for i in range(len(pos_list)):
-                if pos_list[i] == target:
+                if pos_list[i] == target and doc[i].text not in IGNORED_TOKENS:
                     matches.append((i, 1))
         elif search_type == "entity":
             for ent in doc.ents:
-                if ent.label_ == target.upper():
+                if ent.label_ == target.upper() and doc[ent.start].text not in IGNORED_TOKENS:
                     matches.append((ent.start, ent.end - ent.start))
 
         pattern_counter = Counter()
@@ -51,8 +54,9 @@ def index():
                     right = sent_tokens[local_idx + length: local_idx + length + window]
 
                     next_tok = sent[local_idx + length] if (local_idx + length) < len(sent) else None
-                    next_info = (next_tok.text, next_tok.pos_) if next_tok else ("", "")
-                    pattern_counter[next_info] += 1
+                    if next_tok:
+                        next_info = (next_tok.text, next_tok.pos_, next_tok.ent_type_ or "")
+                        pattern_counter[next_info] += 1
 
                     output_data.append({
                         "left": " ".join(left),

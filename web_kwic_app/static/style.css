@@ -1,0 +1,24 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 2rem;
+}
+
+textarea, input, select {
+  width: 100%;
+  max-width: 600px;
+}
+
+table {
+  border-collapse: collapse;
+  margin-top: 1em;
+}
+
+th, td {
+  border: 1px solid #ccc;
+  padding: 0.5em;
+}
+
+.mid {
+  font-weight: bold;
+  color: cyan;
+}
