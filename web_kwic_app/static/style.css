@@ -1,85 +1,28 @@
-/* ---- Base --------------------------------------------------------------*/
-html,body{
-  margin:0;
-  padding:0;
-  font-family:"Segoe UI", Arial, sans-serif;
-  background:#f9f9f9;
-  color:#333;
-  line-height:1.6;
+body {
+  font-family: sans-serif;
+  line-height: 1.4;
+  background: #f9f9f9;
+  padding: 2em;
 }
-
-/* central wrapper */
-.container{
-  max-width:960px;
-  margin:0 auto;
-  padding:0 1rem 3rem;
+.container {
+  max-width: 800px;
+  margin: auto;
+  background: #fff;
+  padding: 2em;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
-
-/* headings & spacing */
-h1{margin:1.8rem 0 .8rem;font-weight:600;text-align:center;}
-h2,h3{margin:1.5rem 0 .6rem;}
-
-form{
-  display:flex;
-  flex-direction:column;
-  gap:1rem;
-  margin-bottom:2rem;
+label { display: block; margin: 1em 0 0.5em; }
+textarea { width: 100%; }
+table { width: 100%; border-collapse: collapse; margin-top: 1em; }
+th, td { padding: .5em; border: 1px solid #ccc; }
+th { background: #eee; }
+.left  { text-align: right;  color: #555; }
+.mid   {
+  font-weight: bold;
+  color: #00ffff;
+  text-align: center;
+  border-radius: 4px;
 }
-
-/* interactive elements */
-textarea{
-  width:100%;
-  min-height:200px;
-  resize:vertical;
-}
-
-input[type="text"],
-input[type="number"],
-select{
-  width:100%;
-  max-width:130px;
-  padding:.5rem;
-  font-size:1rem;
-  border:1px solid #ccc;
-  border-radius:4px;
-  box-sizing:border-box;
-}
-
-button{
-  align-self:flex-start;
-  background:#0077aa;
-  color:#fff;
-  border:none;
-  padding:.6rem 1.3rem;
-  border-radius:4px;
-  font-size:1rem;
-  cursor:pointer;
-  transition:background .2s;
-}
-button:hover{background:#005f88;}
-
-/* ---- Table -------------------------------------------------------------*/
-.table-wrapper{overflow-x:auto;}
-
-table{
-  width:100%;
-  border-collapse:collapse;
-  background:#fff;
-  box-shadow:0 2px 4px rgba(0,0,0,.05);
-  min-width:550px;          /* ✨ 小さい画面では横スクロール */
-}
-
-th,td{padding:.6rem .8rem;border:1px solid #ddd;}
-th{background:#eee;font-weight:600;text-align:center;}
-
-.left { text-align:right;  white-space:nowrap; }
-.mid  { text-align:center; font-weight:700; color:#0077aa; }
-.right{ text-align:left;  white-space:nowrap; }
-
-/* ---- Responsive --------------------------------------------------------*/
-@media (max-width:600px){
-  input[type="text"],
-  input[type="number"],
-  select{max-width:100%;}
-  h1{font-size:1.35rem;}
-}
+.right { text-align: left;  color: #555; }
+button { padding: .5em 1em; margin-top: 1em; }

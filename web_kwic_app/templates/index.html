@@ -4,28 +4,74 @@
   <meta charset="UTF-8" />
   <title>KWIC Web App</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    #global-loading {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      z-index: 9999;
+    }
+    .loading-backdrop {
+      position: absolute;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(255,255,255,0.8);
+    }
+    .loading-center {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+    .loader {
+      margin: 0 auto 16px auto;
+      width: 48px; height: 48px;
+      border: 6px solid #e0e0e0;
+      border-top: 6px solid #3498db;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg);}
+      100% { transform: rotate(360deg);}
+    }
+    .loading-text {
+      font-size: 1.2em;
+      font-weight: bold;
+      color: #333;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
     <h1>KWIC Web App</h1>
 
+    <div id="global-loading" style="display:none;">
+      <div class="loading-backdrop"></div>
+      <div class="loading-center">
+        <div class="loader"></div>
+        <div class="loading-text">Loading... Please wait.</div>
+      </div>
+    </div>
+
     {% set sel_type = request.form.get('search_type','token') %}
     {% set tgt_val  = request.form.get('target','') %}
 
-    <form method="post" enctype="multipart/form-data">
-      <!-- 1. Search type -->
+    <form method="post" enctype="multipart/form-data" id="kwic-form">
+      <label>Upload .txt file (text corpus):
+        <input type="file" name="file" id="file_input" accept=".txt">
+      </label>
+
       <label>Search type:<br>
         <select name="search_type" id="search_type" onchange="updateTargetInput()">
-          <option value="token"  {% if sel_type=='token'  %}selected{% endif %}>Token</option>
+          <option value="token"  {% if sel_type=='token'  %}selected{% endif %}>Token (exact)</option>
+          <option value="lemma"  {% if sel_type=='lemma'  %}selected{% endif %}>Lemma</option>
           <option value="pos"    {% if sel_type=='pos'    %}selected{% endif %}>Part of Speech</option>
           <option value="entity" {% if sel_type=='entity' %}selected{% endif %}>Named Entity</option>
         </select>
       </label>
 
-      <!-- 2. Target input -->
-      <div id="token_input" style="display:{{ 'block' if sel_type=='token' else 'none' }};">
+      <div id="token_input" style="display:{{ 'block' if sel_type in ['token','lemma'] else 'none' }};">
         <label>Target word(s):<br>
-          <input type="text" name="target" id="target_token" value="{{ tgt_val if sel_type=='token' else '' }}">
+          <input type="text" name="target" id="target_token" value="{{ tgt_val if sel_type in ['token','lemma'] else '' }}">
         </label>
       </div>
 
@@ -49,7 +95,6 @@
         </label>
       </div>
 
-      <!-- 3. Parameters -->
       <label>Context window size:
         <input type="number" name="window" value="{{ request.form.get('window',5) }}" min="1" max="20">
       </label>
@@ -62,16 +107,11 @@
         </select>
       </label>
 
-      <!-- 4. Text and file upload -->
       <label>Text input:<br>
-        <textarea name="text" rows="10" placeholder="Enter your text or upload a .txt file...">{{ request.form.get('text','') }}</textarea>
+        <textarea name="text" id="text_area" rows="10" placeholder="Enter your text or upload a .txt file...">{{ request.form.get('text','') }}</textarea>
       </label>
 
-      <label>Upload .txt file (text corpus):
-        <input type="file" name="file" accept=".txt">
-      </label>
-
-      <button type="submit">Run KWIC Search</button>
+      <button type="submit" id="submit_btn">Run KWIC Search</button>
     </form>
 
     {% if result %}
@@ -103,25 +143,34 @@
   </div>
 
   <script>
-    function updateTargetInput(){
+    function updateTargetInput() {
       const type = document.getElementById('search_type').value;
-      const divs = {
-        token:  document.getElementById('token_input'),
-        pos:    document.getElementById('pos_input'),
-        entity: document.getElementById('ent_input')
-      };
-      const inputs = {
-        token:  document.getElementById('target_token'),
-        pos:    document.getElementById('target_pos'),
-        entity: document.getElementById('target_ent')
-      };
-      for (let key in divs){
-        const show = (key === type);
-        divs[key].style.display = show ? 'block' : 'none';
-        inputs[key].disabled    = !show;
-      }
+      document.getElementById('token_input').style.display  = (type === 'token' || type === 'lemma') ? 'block' : 'none';
+      document.getElementById('pos_input').style.display    = (type === 'pos')   ? 'block' : 'none';
+      document.getElementById('ent_input').style.display    = (type === 'entity')? 'block' : 'none';
+
+      document.getElementById('target_token').disabled = !(type === 'token' || type === 'lemma');
+      document.getElementById('target_pos').disabled   = !(type === 'pos');
+      document.getElementById('target_ent').disabled   = !(type === 'entity');
     }
-    document.addEventListener('DOMContentLoaded', updateTargetInput);
+
+    document.addEventListener('DOMContentLoaded', function () {
+      updateTargetInput();
+
+      const form = document.getElementById('kwic-form');
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        document.getElementById('global-loading').style.display = 'block';
+        document.getElementById('submit_btn').disabled = true;
+        setTimeout(() => form.submit(), 100);
+      });
+
+      document.getElementById('file_input').addEventListener('change', function () {
+        if (this.files.length > 0) {
+          document.getElementById('text_area').value = '';
+        }
+      });
+    });
   </script>
 </body>
 </html>
