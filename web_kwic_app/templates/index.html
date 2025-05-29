@@ -6,68 +6,76 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-  <h1>KWIC Web App</h1>
-  <form method="post">
-    <label>Text:<br>
-      <textarea name="text" rows="10" cols="100" placeholder="Enter your text here..." required></textarea>
-    </label><br><br>
+  <div class="container"><!-- ✨ 追加 -->
+    <h1>KWIC Web App</h1>
 
-    <label>Target:<br>
-      <input type="text" name="target" required>
-    </label><br><br>
+    <form method="post">
+      <label>Text:<br>
+        <textarea name="text" rows="10"
+          placeholder="Enter your text here..." required>{{ request.form.get('text','') }}</textarea>
+      </label>
 
-    <label>Window size:
-      <input type="number" name="window" value="5" min="1" max="20">
-    </label><br><br>
+      <label>Target:<br>
+        <input type="text" name="target" value="{{ request.form.get('target','') }}" required>
+      </label>
 
-    <label>Search type:
-      <select name="search_type">
-        <option value="token">Token</option>
-        <option value="pos">POS</option>
-        <option value="entity">Entity</option>
-      </select>
-    </label><br><br>
+      <label>Window size:
+        <input type="number" name="window" value="{{ request.form.get('window',5) }}" min="1" max="20">
+      </label>
 
-    <label>Sort mode:
-      <select name="sort_mode">
-        <option value="sequential">Sequential</option>
-        <option value="token_freq">Token Freq</option>
-        <option value="pos_freq">POS Freq</option>
-      </select>
-    </label><br><br>
+      <label>Search type:
+        <select name="search_type">
+          {% for opt in ['token','pos','entity'] %}
+            <option value="{{ opt }}" {% if request.form.get('search_type')==opt %}selected{% endif %}>
+              {{ opt|capitalize }}
+            </option>
+          {% endfor %}
+        </select>
+      </label>
 
-    <button type="submit">Search</button>
-  </form>
+      <label>Sort mode:
+        <select name="sort_mode">
+          {% for opt,label in [('sequential','Sequential'),
+                               ('token_freq','Token Freq'),
+                               ('pos_freq','POS Freq')] %}
+            <option value="{{ opt }}" {% if request.form.get('sort_mode')==opt %}selected{% endif %}>
+              {{ label }}
+            </option>
+          {% endfor %}
+        </select>
+      </label>
 
-  {% if result %}
-    <h2>KWIC Results</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>Left</th>
-          <th>Keyword</th>
-          <th>Right</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for item in result %}
-          <tr>
-            <td class="left">{{ item.left }}</td>
-            <td class="mid">{{ item.mid }}</td>
-            <td class="right">{{ item.right }}</td>
-          </tr>
+      <button type="submit">Search</button>
+    </form>
+
+    {% if result %}
+      <h2>KWIC Results</h2>
+      <div class="table-wrapper"><!-- ✨ 追加：横スクロール用 -->
+        <table>
+          <thead>
+            <tr><th>Left</th><th>Keyword</th><th>Right</th></tr>
+          </thead>
+          <tbody>
+            {% for item in result %}
+              <tr>
+                <td class="left">{{ item.left }}</td>
+                <td class="mid">{{ item.mid }}</td>
+                <td class="right">{{ item.right }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+
+    {% if patterns %}
+      <h3>Most-frequent next-token patterns</h3>
+      <ul>
+        {% for pat, cnt in patterns %}
+          <li>{{ pat }} – {{ cnt }}</li>
         {% endfor %}
-      </tbody>
-    </table>
-  {% endif %}
-
-  {% if patterns %}
-    <h3>Most Frequent Patterns (token, POS, entity)</h3>
-    <ul>
-      {% for pat, count in patterns %}
-        <li>{{ pat }} – {{ count }}</li>
-      {% endfor %}
-    </ul>
-  {% endif %}
+      </ul>
+    {% endif %}
+  </div><!-- /container -->
 </body>
 </html>
