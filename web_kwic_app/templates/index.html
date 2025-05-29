@@ -12,83 +12,73 @@
     {% set sel_type = request.form.get('search_type','token') %}
     {% set tgt_val  = request.form.get('target','') %}
 
-    <form method="post">
-      <!-- 1) Search type ------------------------------------------------ -->
+    <form method="post" enctype="multipart/form-data">
+      <!-- 1. Search type -->
       <label>Search type:<br>
         <select name="search_type" id="search_type" onchange="updateTargetInput()">
           <option value="token"  {% if sel_type=='token'  %}selected{% endif %}>Token</option>
-          <option value="pos"    {% if sel_type=='pos'    %}selected{% endif %}>POS</option>
-          <option value="entity" {% if sel_type=='entity' %}selected{% endif %}>Entity</option>
+          <option value="pos"    {% if sel_type=='pos'    %}selected{% endif %}>Part of Speech</option>
+          <option value="entity" {% if sel_type=='entity' %}selected{% endif %}>Named Entity</option>
         </select>
       </label>
 
-      <!-- 2) Target (dynamic) ------------------------------------------- -->
-      <!-- Token -->
+      <!-- 2. Target input -->
       <div id="token_input" style="display:{{ 'block' if sel_type=='token' else 'none' }};">
         <label>Target word(s):<br>
-          <input type="text" name="target" id="target_token"
-                 value="{{ tgt_val if sel_type=='token' else '' }}">
+          <input type="text" name="target" id="target_token" value="{{ tgt_val if sel_type=='token' else '' }}">
         </label>
       </div>
 
-      <!-- POS -->
       <div id="pos_input" style="display:{{ 'block' if sel_type=='pos' else 'none' }};">
         <label>POS tag:<br>
           <select name="target" id="target_pos">
             {% for pos in pos_tags %}
-              <option value="{{ pos }}" {% if sel_type=='pos' and tgt_val==pos %}selected{% endif %}>
-                {{ pos }}
-              </option>
+              <option value="{{ pos }}" {% if sel_type=='pos' and tgt_val==pos %}selected{% endif %}>{{ pos }}</option>
             {% endfor %}
           </select>
         </label>
       </div>
 
-      <!-- Entity -->
       <div id="ent_input" style="display:{{ 'block' if sel_type=='entity' else 'none' }};">
         <label>Entity label:<br>
           <select name="target" id="target_ent">
             {% for ent in ent_labels %}
-              <option value="{{ ent }}" {% if sel_type=='entity' and tgt_val==ent %}selected{% endif %}>
-                {{ ent }}
-              </option>
+              <option value="{{ ent }}" {% if sel_type=='entity' and tgt_val==ent %}selected{% endif %}>{{ ent }}</option>
             {% endfor %}
           </select>
         </label>
       </div>
 
-      <!-- 3) 他の設定 ---------------------------------------------------- -->
-      <label>Window size:
-        <input type="number" name="window"
-               value="{{ request.form.get('window',5) }}" min="1" max="20">
+      <!-- 3. Parameters -->
+      <label>Context window size:
+        <input type="number" name="window" value="{{ request.form.get('window',5) }}" min="1" max="20">
       </label>
 
-      <label>Sort mode:
+      <label>Sort results by:
         <select name="sort_mode">
-          {% for opt,label in [('sequential','Sequential'),
-                               ('token_freq','Token Freq'),
-                               ('pos_freq','POS Freq')] %}
-            <option value="{{ opt }}" {% if request.form.get('sort_mode','sequential')==opt %}selected{% endif %}>
-              {{ label }}
-            </option>
+          {% for opt,label in [('sequential','Document Order'), ('token_freq','Most Frequent Token'), ('pos_freq','Most Frequent POS')] %}
+            <option value="{{ opt }}" {% if request.form.get('sort_mode','sequential')==opt %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
         </select>
       </label>
 
-      <!-- 4) 本文 -------------------------------------------------------- -->
-      <label>Text:<br>
-        <textarea name="text" rows="10" placeholder="Enter your text here..." required>{{ request.form.get('text','') }}</textarea>
+      <!-- 4. Text and file upload -->
+      <label>Text input:<br>
+        <textarea name="text" rows="10" placeholder="Enter your text or upload a .txt file...">{{ request.form.get('text','') }}</textarea>
       </label>
 
-      <button type="submit">Search</button>
+      <label>Upload .txt file (text corpus):
+        <input type="file" name="file" accept=".txt">
+      </label>
+
+      <button type="submit">Run KWIC Search</button>
     </form>
 
-    <!-- 結果表示 ---------------------------------------------------------- -->
     {% if result %}
       <h2>KWIC Results</h2>
       <div class="table-wrapper">
         <table>
-          <thead><tr><th>Left</th><th>Keyword</th><th>Right</th></tr></thead>
+          <thead><tr><th>Left Context</th><th>Keyword</th><th>Right Context</th></tr></thead>
           <tbody>
             {% for item in result %}
               <tr>
@@ -103,7 +93,7 @@
     {% endif %}
 
     {% if patterns %}
-      <h3>Most-frequent next-token patterns</h3>
+      <h3>Most Frequent Next-Token Patterns</h3>
       <ul>
         {% for pat, cnt in patterns %}
           <li>{{ pat }} – {{ cnt }}</li>
@@ -112,7 +102,6 @@
     {% endif %}
   </div>
 
-  <!-- JS: 入力欄の切替 ---------------------------------------------------- -->
   <script>
     function updateTargetInput(){
       const type = document.getElementById('search_type').value;
@@ -126,7 +115,6 @@
         pos:    document.getElementById('target_pos'),
         entity: document.getElementById('target_ent')
       };
-      // 表示・非表示と disable 切替
       for (let key in divs){
         const show = (key === type);
         divs[key].style.display = show ? 'block' : 'none';
