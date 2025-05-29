@@ -7,6 +7,15 @@ nlp = spacy.load("en_core_web_sm")
 
 IGNORED_TOKENS = {"(", ")", ",", ".", ":", ";"}
 
+POS_TAGS = [
+    "ADJ","ADP","ADV","AUX","CCONJ","DET","INTJ","NOUN","NUM","PART",
+    "PRON","PROPN","PUNCT","SCONJ","SYM","VERB","X"
+]
+ENT_LABELS = [
+    "PERSON","NORP","FAC","ORG","GPE","LOC","PRODUCT","EVENT","WORK_OF_ART",
+    "LAW","LANGUAGE","DATE","TIME","PERCENT","MONEY","QUANTITY","ORDINAL","CARDINAL"
+]
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     result, patterns = [], []
@@ -40,7 +49,7 @@ def index():
                 if ent.label_ == target.upper() and doc[ent.start].text not in IGNORED_TOKENS:
                     matches.append((ent.start, ent.end - ent.start))
 
-        # --- KWIC 作成 & 次語パターン集計 ---
+        # --- KWIC & パターン集計 ---
         pattern_counter, output = Counter(), []
         for idx, length in matches:
             sent = next(s for s in doc.sents if s.start <= idx < s.end)
@@ -69,7 +78,13 @@ def index():
         result   = output
         patterns = pattern_counter.most_common(10)
 
-    return render_template("index.html", result=result, patterns=patterns)
+    return render_template(
+        "index.html",
+        result=result,
+        patterns=patterns,
+        pos_tags=POS_TAGS,        # ★ 追加
+        ent_labels=ENT_LABELS     # ★ 追加
+    )
 
 if __name__ == "__main__":
     import os
