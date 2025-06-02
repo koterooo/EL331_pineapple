@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>KWIC Web App</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    #global-loading {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      z-index: 9999;
+    }
+    .loading-backdrop {
+      position: absolute;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(255,255,255,0.8);
+    }
+    .loading-center {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+    .loader {
+      margin: 0 auto 16px auto;
+      width: 48px; height: 48px;
+      border: 6px solid #e0e0e0;
+      border-top: 6px solid #3498db;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg);}
+      100% { transform: rotate(360deg);}
+    }
+    .loading-text {
+      font-size: 1.2em;
+      font-weight: bold;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>KWIC Web App</h1>
+
+    <div id="global-loading" style="display:none;">
+      <div class="loading-backdrop"></div>
+      <div class="loading-center">
+        <div class="loader"></div>
+        <div class="loading-text">Loading... Please wait.</div>
+      </div>
+    </div>
+
+    {% set sel_type = request.form.get('search_type','token') %}
+    {% set tgt_val  = request.form.get('target','') %}
+
+    <form method="post" enctype="multipart/form-data" id="kwic-form">
+      <label>Upload .txt file (text corpus):
+        <input type="file" name="file" id="file_input" accept=".txt">
+      </label>
+
+      <label>Search type:<br>
+        <select name="search_type" id="search_type" onchange="updateTargetInput()">
+          <option value="token"  {% if sel_type=='token'  %}selected{% endif %}>Token (exact)</option>
+          <option value="lemma"  {% if sel_type=='lemma'  %}selected{% endif %}>Lemma</option>
+          <option value="pos"    {% if sel_type=='pos'    %}selected{% endif %}>Part of Speech</option>
+          <option value="entity" {% if sel_type=='entity' %}selected{% endif %}>Named Entity</option>
+        </select>
+      </label>
+
+      <div id="token_input" style="display:{{ 'block' if sel_type in ['token','lemma'] else 'none' }};">
+        <label>Target word(s):<br>
+          <input type="text" name="target" id="target_token" value="{{ tgt_val if sel_type in ['token','lemma'] else '' }}">
+        </label>
+      </div>
+
+      <div id="pos_input" style="display:{{ 'block' if sel_type=='pos' else 'none' }};">
+        <label>POS tag:<br>
+          <select name="target" id="target_pos">
+            {% for pos in pos_tags %}
+              <option value="{{ pos }}" {% if sel_type=='pos' and tgt_val==pos %}selected{% endif %}>{{ pos }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+
+      <div id="ent_input" style="display:{{ 'block' if sel_type=='entity' else 'none' }};">
+        <label>Entity label:<br>
+          <select name="target" id="target_ent">
+            {% for ent in ent_labels %}
+              <option value="{{ ent }}" {% if sel_type=='entity' and tgt_val==ent %}selected{% endif %}>{{ ent }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+
+      <label>Context window size:
+        <input type="number" name="window" value="{{ request.form.get('window',5) }}" min="1" max="20">
+      </label>
+
+      <label>Sort results by:
+        <select name="sort_mode">
+          {% for opt,label in [('sequential','Document Order'), ('token_freq','Most Frequent Token'), ('pos_freq','Most Frequent POS')] %}
+            <option value="{{ opt }}" {% if request.form.get('sort_mode','sequential')==opt %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>Text input:<br>
+        <textarea name="text" id="text_area" rows="10" placeholder="Enter your text or upload a .txt file...">{{ request.form.get('text','') }}</textarea>
+      </label>
+
+      <button type="submit" id="submit_btn">Run KWIC Search</button>
+    </form>
+
+    {% if result %}
+      <h2>KWIC Results</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Left Context</th><th>Keyword</th><th>Right Context</th></tr></thead>
+          <tbody>
+            {% for item in result %}
+              <tr>
+                <td class="left">{{ item.left }}</td>
+                <td class="mid">{{ item.mid }}</td>
+                <td class="right">{{ item.right }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+
+    {% if patterns %}
+      <h3>Most Frequent Next-Token Patterns</h3>
+      <ul>
+        {% for pat, cnt in patterns %}
+          <li>{{ pat }} – {{ cnt }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+
+  <script>
+    function updateTargetInput() {
+      const type = document.getElementById('search_type').value;
+      document.getElementById('token_input').style.display  = (type === 'token' || type === 'lemma') ? 'block' : 'none';
+      document.getElementById('pos_input').style.display    = (type === 'pos')   ? 'block' : 'none';
+      document.getElementById('ent_input').style.display    = (type === 'entity')? 'block' : 'none';
+
+      document.getElementById('target_token').disabled = !(type === 'token' || type === 'lemma');
+      document.getElementById('target_pos').disabled   = !(type === 'pos');
+      document.getElementById('target_ent').disabled   = !(type === 'entity');
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      updateTargetInput();
+
+      const form = document.getElementById('kwic-form');
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        document.getElementById('global-loading').style.display = 'block';
+        document.getElementById('submit_btn').disabled = true;
+        setTimeout(() => form.submit(), 100);
+      });
+
+      document.getElementById('file_input').addEventListener('change', function () {
+        if (this.files.length > 0) {
+          document.getElementById('text_area').value = '';
+        }
+      });
+    });
+  </script>
+</body>
+</html>
